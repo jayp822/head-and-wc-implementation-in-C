@@ -10,6 +10,6 @@ int main(int argc, char* argv[])
 {
 	int n;
 	char buf[BUFFSIZE];
-	char* filename;
-	int fd;
+	FILE* filename;
+
 }
