@@ -13,10 +13,8 @@ wc.o: wc.c
 run: cl
 	./head
 	./wc
-	
+
+
 clean:
 	rm -f head *.o
 	rm -f wc *.o
-
-
-
