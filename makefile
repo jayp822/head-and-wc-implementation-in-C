@@ -1,20 +1,19 @@
-NAME = multi_files   
 FLAGS = -Wall -pedantic-errors
 
 cl: head.o wc.o
-	gcc -o $(NAME) main.o arrayutil.o
+	gcc -o head head.o
+	gcc -o wc wc.o
 
-main.o: main.c arrayutil.h
-	gcc -c $(FLAGS) main.c
+head.o: head.c
+	gcc -c $(FLAGS) head.c
 
-arrayutil.o: arrayutil.h arrayutil.c
-	gcc -c $(FLAGS) arrayutil.c
+wc.o: wc.c
+	gcc -c $(FLAGS) wc.c
 
 run: cl
-	./$(NAME)
-	
+	./head
+	./wc
+
 clean:
-	rm -f $(NAME) *.o
-
-
-
+	rm -f head *.o
+	rm -f wc *.o
