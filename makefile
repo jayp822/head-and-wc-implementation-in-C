@@ -1,11 +1,15 @@
 FLAGS = -Wall -pedantic-errors
 
-cl: head.c wc.c
+cl: head wc
+
+head.o: head.c
 	gcc -o head $(FLAGS) head.c
+
+wc.o: wc.c
 	gcc -o wc $(FLAGS) wc.c
 
 run: cl
-	./$(NAME)
+	./head
 	
 clean:
 	rm -f head *.o
