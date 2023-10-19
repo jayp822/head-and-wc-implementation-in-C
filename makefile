@@ -9,7 +9,7 @@ wc.o: wc.c
 	gcc -o wc $(FLAGS) wc.c
 
 run: cl
-	./head
+	./head - file1.txt file2.txt
 	
 clean:
 	rm -f head *.o
