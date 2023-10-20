@@ -1,4 +1,4 @@
-ay Patel
+Jay Patel
 Quincy Ngo
 
 Jay Patel UGA ID: 811492611
