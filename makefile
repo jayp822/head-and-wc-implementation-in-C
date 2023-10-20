@@ -2,10 +2,10 @@ FLAGS = -Wall -pedantic-errors
 
 cl: head wc
 
-head.o: head.c
+head: head.c
 	gcc -o head $(FLAGS) head.c
 
-wc.o: wc.c
+wc: wc.c
 	gcc -o wc $(FLAGS) wc.c
 
 run: cl
