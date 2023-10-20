@@ -5,12 +5,13 @@
 
 #define BUFFSIZE 1048576
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	int opt;
+    // Default is -n 10
 	int nflag = 1;
 	int num = 10;
-
+    // n: and c: specify that something is expected to come after -n and -c
 	while((opt = getopt(argc, argv, "n:c:")) != -1)
 	{
 		switch(opt)
@@ -30,7 +31,11 @@ int main(int argc, char* argv[])
 	
 	}
 	
-	if(nflag) printf("-n %d option used\n", num);
+	if(nflag)
+    {
+ 
+        printf("-n %d option used\n", num);
+    }
 	else	  printf("-c %d option used\n", num);
 
 	for(; optind < argc; optind++)
