@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -49,20 +50,24 @@ int main(int argc, char *argv[])
 			}
 			if(n == -1) perror("read");
 		}
+//		if(close(argv[optind]) == -1) perror("close");
+		
 		return 0;
 	} else if(nflag == 0 && num > 0)
 	{
 		//-c implemented
-
 		for(; optind < argc; optind++)
 		{
-			printf("extra arguments: %s\n", argv[optind]);
+			fd = open(argv[optind], O_RDONLY);
+			if(fd == -1) perror("open");
+			if((n = read(fd, buffer, num)) == -1 ) perror("read");;
+			if(write(STDOUT_FILENO, buffer, n) != n) perror("write");;
+			if(close(fd) == -1) perror("close");
 		}
 		return 0;
 	}else
 	{
-		perror("The invalid command line arguments");
+		errno = 22;
+		perror("Invalid command line arguments try again");
 	}
-
-
 }
