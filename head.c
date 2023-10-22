@@ -9,11 +9,8 @@
 
 int main(int argc, char *argv[])
 {
-	int opt;
-	int fd;
-	int n;
+	int opt, n, fd;
 	char buffer[BUFFSIZE];
-	off_t size;
     // Default is -n 10
 	int nflag = 1;
 	int num = 10;
@@ -35,39 +32,75 @@ int main(int argc, char *argv[])
 				printf("unknown option: %c\n", optopt);
 				break;
 		}
-	
 	}
 	
-	if(nflag && num > 0)
+	//checks if num is valid
+	if(num < 1)
+	{ 
+		errno = EINVAL; 
+		perror("Num is less than 1"); 
+		return 0;
+	}
+
+	if(nflag == 0 && argc == 3)
 	{
-		for(; optind < argc; optind++)
+		if((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
+		if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
+	}
+
+	if(nflag == 1 && argc == 3)
+	{
+		while((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
 		{
-			fd = open(argv[optind], O_RDONLY);
-			if(fd == -1) perror("open");
-			while((n = read(fd, buffer, num)) > 0)
-			{
-				if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
-			}
+			if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
 			if(n == -1) perror("read");
 		}
-//		if(close(argv[optind]) == -1) perror("close");
-		
-		return 0;
-	} else if(nflag == 0 && num > 0)
+	}
+	
+	for(; optind < argc; optind++)
 	{
-		//-c implemented
-		for(; optind < argc; optind++)
+		// -c num is used
+		if(nflag == 0)
 		{
+			{
+				if((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
+				if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
+			}
+			if(*argv[optind] != '-')
+			{
+				fd = open(argv[optind], O_RDONLY);
+				if(fd == -1) perror("open");
+				if((n = read(fd, buffer, num)) == -1) perror("read");
+				if(write(STDOUT_FILENO, buffer, n) == -1) perror("write");
+				if(close(fd) == -1) perror ("close");
+			}else
+			{
+				if((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
+				if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
+			}
+
+		}else if(nflag == 1)
+		{
+		// -n num is used
 			fd = open(argv[optind], O_RDONLY);
 			if(fd == -1) perror("open");
 			if((n = read(fd, buffer, num)) == -1 ) perror("read");;
-			if(write(STDOUT_FILENO, buffer, n) != n) perror("write");;
+			if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
 			if(close(fd) == -1) perror("close");
+			return 0;
+
+		}else if(*argv[optind] == '-')
+		{
+		// only - is used
+			while((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
+			{
+				if(write(STDOUT_FILENO, buffer, n) != n) perror("write");
+				if(n == -1) perror("read");
+			}
+		}else
+		{
+			errno = 22;	
+			perror("Invalid command line arguments try again");
 		}
-		return 0;
-	}else
-	{
-		errno = 22;
-		perror("Invalid command line arguments try again");
 	}
 }
