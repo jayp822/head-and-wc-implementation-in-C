@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         if (write(STDOUT_FILENO, buffer, n) != n) perror("write");
     }
     // -n num only
-    if (nflag == 1 && argc == 3)
+    if (nflag == 1 && (argc == 3 || argc == 1))
     {
         for (int j = 0; j < num; ++j)
         {
@@ -68,13 +68,12 @@ int main(int argc, char *argv[])
     //for arguments after -c num or -n num
     for (; optind < argc; optind++)
     {
-        // -c num is used
+        // -c num [args] is used
         if (nflag == 0)
         {
             if (*argv[optind] != '-')
             {
-                fd = open(argv[optind], O_RDONLY);
-                if (fd == -1) perror("open");
+                if ((fd = open(argv[optind], O_RDONLY)) == -1)perror("open");
                 if ((n = read(fd, buffer, num)) == -1) perror("read");
                 if (write(STDOUT_FILENO, buffer, n) == -1) perror("write");
                 if (close(fd) == -1) perror("close");
@@ -85,27 +84,18 @@ int main(int argc, char *argv[])
             }
         } else if (nflag == 1)
         {
-            // -n num used
+            // -n num [args] used
             if (*argv[optind] != '-')
             {
-                fd = open(argv[optind], O_RDONLY);
-                if (fd < 0) perror("open");
-                for (int j = 0; j < num; ++j)
-                {
-                    while ((n = read(fd, buffer, BUFFSIZE)) > 0)
-                    {
-                        for (int i = 0; i < n; ++i)
-                        {
-                            if (buffer[i] == '\n')
-                                write(STDOUT_FILENO, buffer, i + 1);
-
-                            lseek(fd, i - n + 1, SEEK_CUR);
-                        }
-                        break;
-                    }
-                }
-                if (close(fd) == -1) perror("close");
+                int count = 0;
+                if ((fd = open(argv[optind], O_RDONLY)) == -1)perror("open");
+                int fd2 = dup(fd);
+                if ((n = read(fd, buffer, BUFFSIZE)) == -1) perror("read");
+                printf("%d", n);
+//
+                if (close(fd) == -1)perror("close");
             } else
+                // -n 10 only or -n num only
             {
                 for (int j = 0; j < num; ++j)
                 {
@@ -131,10 +121,6 @@ int main(int argc, char *argv[])
                 if (write(STDOUT_FILENO, buffer, n) != n) perror("write");
                 if (n == -1) perror("read");
             }
-        } else
-        {
-            errno = 22;
-            perror("Invalid command line arguments try again");
         }
     }
 }
