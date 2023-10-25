@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -47,7 +46,7 @@ int main(int argc, char *argv[])
         FILE *fp = fopen(argv[i], "r");
         int lineCount = 0;
         int wordCount = 0;
-        int successfulRead = 0;
+        int successfulRead;
         int bytes = 0;
         char buffer[4096];
         if (fp != NULL)

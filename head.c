@@ -3,16 +3,24 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <stdbool.h>
 
 #define BUFFSIZE 1048576
+
+void print_error_and_exit(const char *message)
+{
+    perror(message);
+    exit(EXIT_FAILURE);
+}
 
 int main(int argc, char *argv[])
 {
     int opt, n, fd;
     char buffer[BUFFSIZE];
-    // Default is -n 10
     int nflag = 1;
     int num = 10;
+    bool flagUsed = false;
 
     // n: and c: specify that something is expected to come after -n and -c
     while ((opt = getopt(argc, argv, "n:c:")) != -1)
@@ -21,10 +29,12 @@ int main(int argc, char *argv[])
         {
             case 'n':
                 nflag = 1;
+                flagUsed = true;
                 num = atoi(optarg);
                 break;
             case 'c':
                 nflag = 0;
+                flagUsed = true;
                 num = atoi(optarg);
                 break;
             case '?':
@@ -33,85 +43,114 @@ int main(int argc, char *argv[])
         }
     }
 
-    //checks if num is valid
-    if (num < 1)
+    if (!flagUsed)
     {
-        errno = EINVAL;
-        perror("Num is less than 1");
-        return 0;
-    }
-    // -c num only
-    if (nflag == 0 && argc == 3)
-    {
-        if ((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
-        if (write(STDOUT_FILENO, buffer, n) != n) perror("write");
-    }
-    // -n num only
-    if (nflag == 1 && (argc == 3 || argc == 1))
-    {
-        for (int j = 0; j < num; ++j)
+        // flag not used and ./head only
+        if (argc == 1)
         {
-            while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
+            for (int j = 0; j < num; ++j)
             {
-                for (int i = 0; i < n; ++i)
+                while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
                 {
-                    if (buffer[i] == '\n')
-                        write(STDOUT_FILENO, buffer, i + 1);
+                    for (int i = 0; i < n; ++i)
+                    {
+                        if (buffer[i] == '\n')
+                            if (write(STDOUT_FILENO, buffer, i + 1) == -1) print_error_and_exit("write");
 
-                    lseek(STDIN_FILENO, i - n + 1, i + 1);
+                        if (lseek(STDIN_FILENO, i - n + 1, SEEK_CUR) == -1) print_error_and_exit("lseek");
+                    }
+                    if (n == -1) print_error_and_exit("read");
+                    break;
                 }
-                break;
+            }
+        } else
+        {
+            // multiple arguments but -n or -c not used
+            for (; optind < argc; optind++)
+            {
+                printf("\n==> %s <==\n", argv[optind]);
+                if (*argv[optind] == '-')
+                {
+                    // - is used
+                    for (int j = 0; j < num; ++j)
+                    {
+                        while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
+                        {
+                            for (int i = 0; i < n; ++i)
+                            {
+                                if (buffer[i] == '\n')
+                                    if (write(STDOUT_FILENO, buffer, i + 1) == -1) print_error_and_exit("write");
+
+                                if (lseek(STDIN_FILENO, i - n + 1, SEEK_CUR) == -1) print_error_and_exit("lseek");
+                            }
+                            if (n == -1) print_error_and_exit("read");
+                            break;
+                        }
+                    }
+                } else
+                {
+                    // file used
+                    int bytesRead, linesRead = 0;
+                    if ((fd = open(argv[optind], O_RDONLY)) == -1)print_error_and_exit("open");
+                    while ((bytesRead = read(fd, buffer, BUFFSIZE)) > 0)
+                    {
+                        for (int i = 0; i < bytesRead; i++)
+                        {
+                            if (buffer[i] == '\n')
+                            {
+                                linesRead++;
+                                if (linesRead == num)
+                                {
+                                    buffer[i + 1] = '\0'; // Null-terminate the string at the end of the last line
+                                    if ((write(STDOUT_FILENO, buffer, i + 1)) == -1)
+                                        print_error_and_exit("write"); // Write the lines to stdout
+                                    if (close(fd) == -1)
+                                        print_error_and_exit(
+                                                "close"); //Close the file after reading the desired number of lines
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
             }
         }
     }
-
-    //for arguments after -c num or -n num
-    for (; optind < argc; optind++)
+    if (flagUsed)
     {
-        // -c num [args] is used
+        //-c
         if (nflag == 0)
         {
-            if (*argv[optind] != '-')
+            if (isdigit(*argv[2]) && argc == 3)
             {
-                if ((fd = open(argv[optind], O_RDONLY)) == -1)perror("open");
-                if ((n = read(fd, buffer, num)) == -1) perror("read");
-                if (write(STDOUT_FILENO, buffer, n) == -1) perror("write");
-                if (close(fd) == -1) perror("close");
+                //-c num
+                if (read(STDIN_FILENO, buffer, num) == -1) print_error_and_exit("read");
+                if (write(STDOUT_FILENO, buffer, num) != num) print_error_and_exit("write");
             } else
             {
-                if ((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
-                if (write(STDOUT_FILENO, buffer, n) != n) perror("write");
-            }
-        } else if (nflag == 1)
-        {
-            // -n num [args] used
-            if (*argv[optind] != '-')
-            {
-                int bytesRead, linesRead = 0;
-                if ((fd = open(argv[optind], O_RDONLY)) == -1)perror("open");
-
-                while ((bytesRead = read(fd, buffer, BUFFSIZE)) > 0)
+                //-c num then multiple arguments
+                for (; optind < argc; optind++)
                 {
-                    for (int i = 0; i < bytesRead; i++)
+                    printf("\n==> %s <==\n", argv[optind]);
+
+                    if (*argv[optind] == '-')
                     {
-                        if (buffer[i] == '\n')
-                        {
-                            linesRead++;
-                            if (linesRead == num)
-                            {
-                                buffer[i + 1] = '\0'; // Null-terminate the string at the end of the last line
-                                write(STDOUT_FILENO, buffer, i + 1); // Write the lines to stdout
-                                close(fd); // Close the file after reading the desired number of lines
-                                return 0;
-                            }
-                        }
+                        if (read(STDIN_FILENO, buffer, num) == -1) print_error_and_exit("read");
+                        if (write(STDOUT_FILENO, buffer, num) == -1) print_error_and_exit("write");
+                    } else
+                    {
+                        if ((fd = open(argv[optind], O_RDONLY)) == -1)print_error_and_exit("open");
+                        if ((n = read(fd, buffer, num)) == -1) print_error_and_exit("read");
+                        if (write(STDOUT_FILENO, buffer, n) == -1) print_error_and_exit("write");
+                        if (close(fd) == -1) print_error_and_exit("close");
                     }
-                    write(STDOUT_FILENO, buffer, bytesRead); // Write the lines to stdout
                 }
-                close(fd);
-            } else
+            }
+        } else
+        {
+            if (isdigit(*argv[2]) && argc == 3)
             {
-                // -n 10 only or -n num only
+                //-n num
                 for (int j = 0; j < num; ++j)
                 {
                     while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
@@ -119,24 +158,68 @@ int main(int argc, char *argv[])
                         for (int i = 0; i < n; ++i)
                         {
                             if (buffer[i] == '\n')
-                                write(STDOUT_FILENO, buffer, i + 1);
+                                if (write(STDOUT_FILENO, buffer, i + 1) == -1) print_error_and_exit("write");
 
-                            lseek(STDIN_FILENO, i - n + 1, i + 1);
+                            if (lseek(STDIN_FILENO, i - n + 1, SEEK_CUR) == -1) print_error_and_exit("lseek");
                         }
+                        if (n == -1) print_error_and_exit("read");
                         break;
+                    }
+                }
+            } else
+            {
+                for (; optind < argc; optind++)
+                {
+                    printf("\n==> %s <==\n", argv[optind]);
+
+                    //-n num then multiple arguments
+                    if (*argv[optind] != '-')
+                    {
+                        int bytesRead, linesRead = 0;
+                        if ((fd = open(argv[optind], O_RDONLY)) == -1)print_error_and_exit("open");
+                        while ((bytesRead = read(fd, buffer, BUFFSIZE)) > 0)
+                        {
+                            for (int i = 0; i < bytesRead; i++)
+                            {
+                                if (buffer[i] == '\n')
+                                {
+                                    linesRead++;
+                                    if (linesRead == num)
+                                    {
+                                        buffer[i + 1] = '\0'; // Null-terminate the string at the end of the last line
+                                        if ((write(STDOUT_FILENO, buffer, i + 1)) == -1)
+                                            print_error_and_exit("write"); // Write the lines to stdout
+                                        if ((close(fd)) == -1)
+                                            print_error_and_exit(
+                                                    "close"); // Close the file after reading the desired number of lines
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    } else
+                    {
+                        for (int j = 0; j < num; ++j)
+                        {
+                            while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
+                            {
+                                for (int i = 0; i < n; ++i)
+                                {
+                                    if (buffer[i] == '\n')
+                                        if (write(STDOUT_FILENO, buffer, i + 1) == -1) print_error_and_exit("write");
+
+                                    if (lseek(STDIN_FILENO, i - n + 1, SEEK_CUR) == -1) print_error_and_exit("lseek");
+                                }
+                                if (n == -1) print_error_and_exit("read");
+                                break;
+                            }
+                        }
                     }
                 }
             }
         }
-        if (*argv[optind] == '-')
-        {
-            // only - is used
-            while ((n = read(STDIN_FILENO, buffer, num)) == -1) perror("read");
-            {
-                if (write(STDOUT_FILENO, buffer, n) != n) perror("write");
-                if (n == -1) perror("read");
-            }
-        }
     }
 }
+
+
 
