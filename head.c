@@ -87,16 +87,31 @@ int main(int argc, char *argv[])
             // -n num [args] used
             if (*argv[optind] != '-')
             {
-                int count = 0;
+                int bytesRead, linesRead = 0;
                 if ((fd = open(argv[optind], O_RDONLY)) == -1)perror("open");
-                int fd2 = dup(fd);
-                if ((n = read(fd, buffer, BUFFSIZE)) == -1) perror("read");
-                printf("%d", n);
-//
-                if (close(fd) == -1)perror("close");
+
+                while ((bytesRead = read(fd, buffer, BUFFSIZE)) > 0)
+                {
+                    for (int i = 0; i < bytesRead; i++)
+                    {
+                        if (buffer[i] == '\n')
+                        {
+                            linesRead++;
+                            if (linesRead == num)
+                            {
+                                buffer[i + 1] = '\0'; // Null-terminate the string at the end of the last line
+                                write(STDOUT_FILENO, buffer, i + 1); // Write the lines to stdout
+                                close(fd); // Close the file after reading the desired number of lines
+                                return 0;
+                            }
+                        }
+                    }
+                    write(STDOUT_FILENO, buffer, bytesRead); // Write the lines to stdout
+                }
+                close(fd);
             } else
-                // -n 10 only or -n num only
             {
+                // -n 10 only or -n num only
                 for (int j = 0; j < num; ++j)
                 {
                     while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
