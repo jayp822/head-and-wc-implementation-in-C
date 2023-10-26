@@ -1,16 +1,32 @@
 #include <stdio.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <ctype.h>
+#include <stdlib.h>
 
-/* Adapted from https://www.geeksforgeeks.org/getopt-function-in-c-to-parse-command-line-arguments/
- * Can be used as starter code for the wc utility program
- */
+#define BUFFSIZE 1048576
+
+void print_error_and_exit(const char *message)
+{
+    perror(message);
+    exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[])
 {
+    int args= 0;
     int opt;
     int cflag = 0;
     int lflag = 0;
     int wflag = 0;
+    int n;
+    int fd;
+    int lines = 0;
+    int words = 0;
+    int chars = 0;
+    int tlines = 0;
+    int twords = 0;
+    int tchars = 0;
+    char buffer[BUFFSIZE];
 
     while ((opt = getopt(argc, argv, "clw")) != -1)
     {
@@ -35,84 +51,103 @@ int main(int argc, char *argv[])
     if (cflag + lflag + wflag == 0)
     {
         cflag = lflag = wflag = 1;
-    } // if
+    }
 
-    int file = 0;
-    int totalBytes = 0;
-    int totalWords = 0;
-    int totalLines = 0;
-    for (int i = optind; i < argc; i++)
+    // only ./wc
+    if (argc == 1)
     {
-        FILE *fp = fopen(argv[i], "r");
-        int lineCount = 0;
-        int wordCount = 0;
-        int successfulRead;
-        int bytes = 0;
-        char buffer[4096];
-        if (fp != NULL)
-        { // checking if the file existed or not.
-            // the loop keep repeating until it reaches the end of the file
-            file++;
-            while (!feof(fp))
+        char buffer[BUFFSIZE];
+        int n;
+        int characters = 0;
+
+        while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
+        {
+            if (n == -1)print_error_and_exit("read");
+            characters += n;
+            for (int i = 0; i < n; ++i)
             {
-                //this line is for read data from the file to the buffer array and return number of
-                // bytes successfully read.
-                successfulRead = fread(buffer, 1, sizeof(buffer) - 1, fp);
-                //loop based on the amount of characters read which is 1 byte for 1 char.
-                for (int i = 0; i < successfulRead; i++)
+                if (buffer[i] == ' ' && buffer[i - 1] != ' ')
                 {
-                    if (lflag)
-                    {
-                        //check and count for lines.
-                        if (buffer[i] == '\n')
-                        {
-                            lineCount++;
-                        }
-                    }
-                    if (wflag)
-                    {
-                        if (isspace(buffer[i]) && !isspace(buffer[i + 1]))
-                        {
-                            wordCount++;
-                        }
-                    }
-                    if (cflag)
-                    {
-                        bytes = successfulRead;
-                    }
+                    words++;
+                }
+                if (buffer[i] == '\n')
+                {
+                    lines++;
                 }
             }
-            totalBytes += bytes;
-            totalLines += lineCount;
-            totalWords += wordCount;
-            if (lflag)
-            {
-                printf("%3d", lineCount);
-            } // if
-            if (wflag)
-            {
-                printf("%4d", wordCount);
-            } // if
-            if (cflag)
-            {
-                printf("%4d", bytes);
-            }
-            printf(" %s", argv[i]);
-            printf("\n");
         }
-    }
-    if (file > 1)
-    {
-        printf("%3d%4d%4d", totalLines, totalWords, totalBytes);
-        printf(" total\n");
+        printf("%-5d%-5d%-5d: STANDARD INPUT", lines, words, characters);
+        exit(EXIT_SUCCESS);
     }
 
-    // optind is for the extra arguments
-    // which are not parsed
+
     for (; optind < argc; optind++)
     {
-        printf("extra arguments: %s\n", argv[optind]);
-    }
+        //reset each loop run
+        lines = words = chars = 0;
+        if (*argv[optind] == '-')
+        {
+            while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    if (buffer[i] == '\n')
+                    {
+                        lines++;
+                    }
+                    if (buffer[i] == ' ' && buffer[i - 1] != ' ')
+                    {
+                        words++;
+                    }
+                    chars = i;
+                }
+            }
+            tlines += lines;
+            twords += words;
+            tchars += chars;
+            if (n == -1)print_error_and_exit("read");
+            if (lflag) printf("%-5d", lines);
+            if (wflag) printf("%-5d", words);
+            if (cflag) printf("%-5d", chars);
+            printf(": STANDARD INPUT\n");
+            args++;
+        } else
+        {
+            if ((fd = open(argv[optind], O_RDONLY)) == -1) print_error_and_exit("open");
+            while ((n = read(fd, buffer, BUFFSIZE)) > 0)
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    if (buffer[i] == '\n')
+                    {
+                        lines++;
+                    }
+                    if (buffer[i] == ' ' && buffer[i - 1] != ' ')
+                    {
+                        words++;
+                    }
+                    chars++;
+                }
+            }
+            tlines += lines;
+            twords += words;
+            tchars += chars;
 
-    return 0;
+            if (n == -1)print_error_and_exit("read");
+            if ((close(fd)) == -1) print_error_and_exit("close");
+            if (lflag) printf("%-5d", lines);
+            if (wflag) printf("%-5d", words);
+            if (cflag) printf("%-5d", chars);
+            printf(": %s\n", argv[optind]);
+            args++;
+        }
+    }
+    if(args > 1)
+    {
+        if (lflag) printf("%-5d", tlines);
+        if (wflag) printf("%-5d", twords);
+        if (cflag) printf("%-5d", tchars);
+        printf(": total");
+    }
+    exit(EXIT_SUCCESS);
 }
