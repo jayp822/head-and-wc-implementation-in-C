@@ -53,30 +53,31 @@ int main(int argc, char *argv[])
         cflag = lflag = wflag = 1;
     }
 
-    // only ./wc
+    // only ./wc argument is used so STDIN and STDOUT are run
     if (argc == 1)
     {
         char buffer[BUFFSIZE];
         int n;
-        int characters = 0;
 
         while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
         {
             if (n == -1)print_error_and_exit("read");
-            characters += n;
+            chars += n;
             for (int i = 0; i < n; ++i)
             {
-                if (buffer[i] == ' ' && buffer[i - 1] != ' ')
+                // count words
+                if ((buffer[i] == ' ' && buffer[i - 1] != ' ') || (buffer[i+1] == '\n' && buffer[i] != ' '))
                 {
                     words++;
                 }
+                // count lines
                 if (buffer[i] == '\n')
                 {
                     lines++;
                 }
             }
         }
-        printf("%-5d%-5d%-5d: STANDARD INPUT", lines, words, characters);
+        printf("%-5d%-5d%-5d: STANDARD INPUT", lines, words, chars);
         exit(EXIT_SUCCESS);
     }
 
@@ -89,19 +90,24 @@ int main(int argc, char *argv[])
         {
             while ((n = read(STDIN_FILENO, buffer, BUFFSIZE)) > 0)
             {
+                if(n == -1)print_error_and_exit("read");
+                //count chars
+                chars += n;
                 for (int i = 0; i < n; ++i)
                 {
+                    // count lines
                     if (buffer[i] == '\n')
                     {
                         lines++;
                     }
-                    if (buffer[i] == ' ' && buffer[i - 1] != ' ')
+                    // count words
+                    if ((buffer[i] == ' ' && buffer[i - 1] != ' ') || (buffer[i+1] == '\n' && buffer[i] != ' '))
                     {
                         words++;
                     }
-                    chars = i;
                 }
             }
+            // add to total
             tlines += lines;
             twords += words;
             tchars += chars;
@@ -116,19 +122,25 @@ int main(int argc, char *argv[])
             if ((fd = open(argv[optind], O_RDONLY)) == -1) print_error_and_exit("open");
             while ((n = read(fd, buffer, BUFFSIZE)) > 0)
             {
+                if(n == -1)print_error_and_exit("read");
+                chars += n;
                 for (int i = 0; i < n; ++i)
                 {
+                    // count lines
                     if (buffer[i] == '\n')
                     {
                         lines++;
                     }
-                    if (buffer[i] == ' ' && buffer[i - 1] != ' ')
+                    // count words
+                    if ((buffer[i] == ' ' && buffer[i - 1] != ' ') || (buffer[i+1] == '\n' && buffer[i] != ' '))
                     {
                         words++;
                     }
-                    chars++;
+                    // count bytes
+
                 }
             }
+            // add to total
             tlines += lines;
             twords += words;
             tchars += chars;
